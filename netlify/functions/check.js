@@ -27,7 +27,7 @@ export async function handler(event, context) {
     const dataWho = ipwhoResult.value || {};
     const dataHub = iphubResult.value || {};
 
-    // --- 3️⃣ Scoring ---
+    // --- 3️⃣ Scoring logic ---
     let proxyScore = 0;
     const reasons = [];
 
@@ -46,11 +46,12 @@ export async function handler(event, context) {
       reasons.push("IPHub uncertain — possible proxy/VPN.");
     }
 
-    // ASN / hosting provider detection
+    // ISP / ASN detection
     const asn = (dataWho.connection?.asn_name || "").toLowerCase();
     const isp = (dataWho.connection?.isp || "").toLowerCase();
+
+    const hardFlagKeywords = ["psychz"]; // always proxy
     const hostingKeywords = [
-      "psychz",
       "digitalocean",
       "amazon",
       "google",
@@ -66,10 +67,19 @@ export async function handler(event, context) {
       "nexeon",
       "tencent",
       "azure",
-      "oracle",
+      "oracle"
     ];
 
-    if (hostingKeywords.some((k) => isp.includes(k) || asn.includes(k))) {
+    // --- 4️⃣ Hard flag (Psychz Networks) ---
+    if (hardFlagKeywords.some((k) => isp.includes(k) || asn.includes(k))) {
+      proxyScore += 100;
+      reasons.push(
+        `ISP/ASN belongs to Psychz Networks — known proxy hosting provider.`
+      );
+    }
+
+    // --- 5️⃣ Generic hosting detection ---
+    else if (hostingKeywords.some((k) => isp.includes(k) || asn.includes(k))) {
       proxyScore += 40;
       reasons.push(
         `ISP/ASN belongs to known hosting provider: ${
@@ -80,7 +90,7 @@ export async function handler(event, context) {
 
     const proxyDetected = proxyScore >= 50;
 
-    // --- 4️⃣ Response ---
+    // --- 6️⃣ Return response ---
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json" },
