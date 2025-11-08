@@ -1,289 +1,115 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Proxy Detector — Single-file</title>
+<meta charset="utf-8">
+<title>Proxy Detector (IPHub)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-  :root{
-    --bg:#0f1724; --card:#0b1220; --muted:#9aa4b2; --accent:#ff6b6b; --ok:#3ddc84;
-    color-scheme: dark;
+  body {
+    font-family: Arial, sans-serif;
+    background: #0f1724;
+    color: #f0f0f0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
   }
-  body{
-    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-    margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
-    background:linear-gradient(180deg,#071025 0%, #071a2b 60%);
-    color: #e6eef6;
-    padding:24px;
+  .box {
+    background: #1a2333;
+    border-radius: 12px;
+    padding: 20px 28px;
+    max-width: 480px;
+    text-align: center;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.5);
   }
-  .card{
-    width:100%; max-width:820px; background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-    border-radius:14px; padding:24px; box-shadow: 0 10px 30px rgba(2,6,23,0.6);
-    border:1px solid rgba(255,255,255,0.03);
+  h1 { font-size: 22px; margin-bottom: 10px; }
+  button {
+    background: #3ddc84;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
   }
-  h1{ margin:0 0 6px 0; font-size:20px; }
-  p.lead{ margin:0 0 18px 0; color:var(--muted); }
-  .result{
-    display:flex; gap:16px; align-items:center; margin-bottom:16px;
+  .bad {
+    color: #ff6b6b;
+    font-weight: bold;
+    font-size: 20px;
+    margin-top: 10px;
   }
-  .badge{
-    min-width:64px; text-align:center; padding:10px 12px; border-radius:12px; font-weight:700;
+  .ok {
+    color: #3ddc84;
+    font-weight: bold;
+    font-size: 20px;
+    margin-top: 10px;
   }
-  .badge.bad { background: linear-gradient(90deg,#9b2c3b,#ff6b6b); color:white; }
-  .badge.ok  { background: linear-gradient(90deg,#1f7a4c,#3ddc84); color:white; }
-  .panel{ background: rgba(255,255,255,0.02); padding:14px; border-radius:10px; border:1px solid rgba(255,255,255,0.02); }
-  ul{ margin:8px 0 0 18px; color:var(--muted); }
-  code{ background: rgba(255,255,255,0.02); padding:2px 6px; border-radius:6px; font-size:13px; }
-  button{ background:transparent; border:1px solid rgba(255,255,255,0.06); padding:8px 12px; color:inherit; border-radius:10px; cursor:pointer; }
-  footer{ margin-top:14px; color:var(--muted); font-size:13px; }
-  .reason{ margin:10px 0 0 0; color:var(--muted); font-size:14px; }
-  .small{ font-size:13px; color:var(--muted) }
-  .checks{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
-  .check{ padding:8px 10px; border-radius:8px; background: rgba(255,255,255,0.01); border:1px solid rgba(255,255,255,0.02); color:var(--muted); }
+  pre {
+    background: #111a2d;
+    padding: 10px;
+    border-radius: 8px;
+    text-align: left;
+    overflow-x: auto;
+  }
 </style>
 </head>
 <body>
-  <main class="card" role="main">
+  <div class="box">
     <h1>Proxy / VPN Detector</h1>
-    <p class="lead">This page runs a few browser-based checks and public IP lookups to guess whether you're using a proxy or VPN. It cannot guarantee correctness — see notes below.</p>
-
-    <div class="result">
-      <div id="badge" class="badge panel small">Waiting…</div>
-      <div style="flex:1">
-        <div id="summary" class="panel small">Press <strong>Check</strong> to start detection.</div>
-        <div class="checks" id="checks"></div>
-      </div>
-      <div style="width:150px;text-align:center;">
-        <button id="btnCheck">Check</button>
-        <div style="height:8px"></div>
-        <button id="btnRecheck" style="display:none">Re-check</button>
-      </div>
-    </div>
-
-    <div class="panel" id="details" style="margin-top:14px;">
-      <strong>Details</strong>
-      <div id="detailText" class="reason">No results yet.</div>
-      <ul id="evidence"></ul>
-    </div>
-
-    <footer>
-      <div class="small"><strong>How it works:</strong> this file queries public IP information providers and uses a WebRTC candidate check. It combines these signals heuristically. <em>Not 100% reliable.</em></div>
-      <div style="height:8px"></div>
-      <div class="small">Privacy note: calls to public IP lookup services reveal your IP to those services.</div>
-    </footer>
-  </main>
+    <p>Click the button below to check if you're on a proxy or VPN.</p>
+    <button id="checkBtn">Check Connection</button>
+    <div id="result"></div>
+    <pre id="details"></pre>
+  </div>
 
 <script>
-(async function(){
-  const btn = document.getElementById('btnCheck');
-  const rebtn = document.getElementById('btnRecheck');
-  const badge = document.getElementById('badge');
-  const summary = document.getElementById('summary');
-  const checksDiv = document.getElementById('checks');
-  const detailText = document.getElementById('detailText');
-  const evidenceList = document.getElementById('evidence');
+document.getElementById("checkBtn").addEventListener("click", async () => {
+  const resultDiv = document.getElementById("result");
+  const details = document.getElementById("details");
+  resultDiv.textContent = "Checking...";
+  details.textContent = "";
 
-  function setBadge(type, text){
-    badge.className = 'badge panel small ' + (type === 'bad' ? 'bad' : 'ok');
-    badge.textContent = text;
-  }
-  function appendCheck(text){ const el=document.createElement('div'); el.className='check'; el.textContent=text; checksDiv.appendChild(el); }
-  function addEvidence(text){ const li=document.createElement('li'); li.textContent=text; evidenceList.appendChild(li); }
+  const apiKey = "MzAyMzk6TGFWTWhmTzRiZ3lKV1FPSHJjMWZXOEhqRHlpTmxrcGs="; // <-- paste your key here for local use
 
-  async function fetchJson(url, opts = {}) {
-    try {
-      const res = await fetch(url, opts);
-      if(!res.ok) throw new Error('HTTP '+res.status);
-      return await res.json();
-    } catch (e) {
-      return { error: e.message || e.toString() };
-    }
-  }
+  try {
+    const res = await fetch("https://proxycheck.io/v2/?key=" + apiKey); // Correction below
+  } catch {}
+  try {
+    // 1. Get public IP
+    const ipRes = await fetch("https://api.ipify.org?format=json");
+    const { ip } = await ipRes.json();
 
-  // WebRTC local candidate gather
-  async function getLocalIPs(timeout = 3500) {
-    return new Promise((resolve) => {
-      const ips = new Set();
-      // Safari may require special config; wrap in try.
-      try {
-        const pc = new RTCPeerConnection({iceServers:[]});
-        pc.createDataChannel("");
-        pc.onicecandidate = (event) => {
-          if(!event || !event.candidate) return;
-          const parts = event.candidate.candidate.split(' ');
-          // candidate format: "candidate:... typ host ... ip ..."
-          for(const p of parts){
-            // quick IP regex
-            const ipRe = /([0-9]{1,3}\.){3}[0-9]{1,3}/;
-            const m = p.match(ipRe);
-            if(m) ips.add(m[0]);
-          }
-        };
-        pc.createOffer().then(o => pc.setLocalDescription(o)).catch(()=>{});
-        setTimeout(() => {
-          try{ pc.close(); }catch(e){}
-          resolve(Array.from(ips));
-        }, timeout);
-      } catch(e){
-        resolve([]);
-      }
+    // 2. Query IPHub API
+    const resp = await fetch("https://v2.api.iphub.info/ip/" + ip, {
+      headers: { "X-Key": apiKey }
     });
+
+    if (!resp.ok) {
+      resultDiv.textContent = "Error fetching from IPHub: " + resp.status;
+      return;
+    }
+
+    const data = await resp.json();
+    details.textContent = JSON.stringify(data, null, 2);
+
+    /*
+      IPHub "block" field meanings:
+      0 = Residential / non-proxy
+      1 = Non-residential / proxy / hosting
+      2 = Mixed
+    */
+    if (data.block === 1) {
+      resultDiv.innerHTML = `<div class="bad">🚫 Proxy/VPN detected — Get off the proxy!</div>`;
+    } else if (data.block === 2) {
+      resultDiv.innerHTML = `<div class="bad">⚠️ Possible proxy — mixed usage detected!</div>`;
+    } else {
+      resultDiv.innerHTML = `<div class="ok">✅ No proxy detected</div>`;
+    }
+
+  } catch (err) {
+    resultDiv.textContent = "Error: " + err.message;
   }
-
-  // Main check routine
-  async function runChecks(){
-    // UI reset
-    checksDiv.innerHTML=''; evidenceList.innerHTML=''; detailText.textContent='Checking…';
-    setBadge('ok','Checking…'); summary.textContent = 'Running multiple checks — this may take 1–2s.';
-    appendCheck('Gathering public IP from ipify...');
-    appendCheck('Querying ip-api for ISP/org and proxy flags...');
-    appendCheck('Collecting WebRTC local candidate IPs...');
-    btn.disabled = true;
-
-    // 1) public IP via ipify
-    const ipify = await fetchJson('https://api.ipify.org?format=json');
-    const publicIP = ipify && ipify.ip ? ipify.ip : null;
-    if(publicIP) {
-      appendCheck('Public IP: '+publicIP);
-      addEvidence('Public IP: ' + publicIP);
-    } else {
-      appendCheck('Public IP: <failed>');
-      addEvidence('Could not obtain public IP (ipify failed).');
-    }
-
-    // 2) ip-api.com check (returns proxy & hosting flags in many cases)
-    // fields: status, message, query, isp, org, as, mobile, proxy, hosting
-    const ipApi = await fetchJson('https://ip-api.com/json/?fields=status,message,query,isp,org,as,mobile,proxy,hosting,country,regionName,city,query');
-    let ipApiInfo = null;
-    if(ipApi && ipApi.status === 'success'){
-      ipApiInfo = ipApi;
-      appendCheck('ip-api: ' + (ipApi.org || ipApi.isp || 'unknown'));
-      addEvidence('ip-api result: ' + JSON.stringify({
-        query: ipApi.query, org: ipApi.org, isp: ipApi.isp, as: ipApi.as, proxy: ipApi.proxy, hosting: ipApi.hosting
-      }));
-    } else {
-      appendCheck('ip-api: failed (' + (ipApi.message||'') + ')');
-      addEvidence('ip-api query failed: ' + (ipApi.error || ipApi.message || 'unknown'));
-    }
-
-    // 3) ipinfo.io (fallback/general org lookup) — ipinfo allows anonymous small usage
-    const ipinfo = await fetchJson('https://ipinfo.io/json?token='); // token blank => limited anonymous
-    if(ipinfo && !ipinfo.error){
-      appendCheck('ipinfo: ' + (ipinfo.org || 'unknown'));
-      addEvidence('ipinfo: ' + JSON.stringify({ ip: ipinfo.ip, org: ipinfo.org, hostname: ipinfo.hostname || '' }));
-    } else {
-      appendCheck('ipinfo: failed or rate-limited');
-    }
-
-    // 4) WebRTC local IPs
-    const localIPs = await getLocalIPs();
-    if(localIPs.length){
-      appendCheck('WebRTC local candidates: ' + localIPs.join(', '));
-      addEvidence('WebRTC candidates: ' + localIPs.join(', '));
-    } else {
-      appendCheck('WebRTC candidates: none or not available');
-      addEvidence('No WebRTC candidate IPs discovered (may be blocked by browser or OS).');
-    }
-
-    // Heuristic reasoning
-    const reasons = [];
-    let suspectScore = 0;
-
-    // If ip-api reports proxy: true or hosting true -> strong indicator
-    if(ipApiInfo){
-      if(ipApiInfo.proxy === true){
-        suspectScore += 60;
-        reasons.push('ip-api flagged this IP as a proxy.');
-      }
-      if(ipApiInfo.hosting === true){
-        suspectScore += 30;
-        reasons.push('ip-api marked this IP as hosting (often cloud/VPN/proxy providers).');
-      }
-      // check ISP/ORG for known cloud/VPN keywords
-      const orgFields = ((ipApiInfo.org||'') + ' ' + (ipApiInfo.isp||'') + ' ' + (ipApiInfo.as||'')).toLowerCase();
-      const vpnKeywords = ['amazon', 'digitalocean', 'linode', 'hetzner', 'microsoft corp', 'google', 'cloudflare', 'vultr', 'ovh', 'vpn', 'proxy', 'hosting'];
-      for(const k of vpnKeywords) if(orgFields.includes(k)) { suspectScore += 8; reasons.push('Organization/ISP contains "'+k+'" — common for cloud/VPN hosting.'); break; }
-    } else if (ipinfo && ipinfo.org){
-      const orga = ipinfo.org.toLowerCase();
-      if(/amazon|digitalocean|linode|hetzner|google|microsoft|cloudflare|vultr|ovh|vpn|proxy|hosting/.test(orga)){
-        suspectScore += 10;
-        reasons.push('ipinfo reports an org commonly associated with cloud/VPN: ' + ipinfo.org);
-      }
-    }
-
-    // If WebRTC local IPs are only private LAN addresses and public IP is different -> not necessarily a proxy.
-    if(publicIP && localIPs.length){
-      // check if any candidate equals public IP (rare). If yes, likely direct.
-      if(localIPs.includes(publicIP)){
-        suspectScore -= 15;
-        reasons.push('WebRTC candidate matched public IP (suggests direct connection).');
-      } else {
-        // if localIPs include only RFC1918 (10.x/172.16/192.168) that's normal
-        const privateRe = /^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1]))/;
-        const nonPrivate = localIPs.filter(ip=>!privateRe.test(ip));
-        if(nonPrivate.length > 0){
-          suspectScore += 6;
-          reasons.push('WebRTC revealed non-private candidate IP(s): ' + nonPrivate.join(', '));
-        } else {
-          reasons.push('WebRTC only found local/private addresses (typical).');
-        }
-      }
-    }
-
-    // Combine final verdict thresholds (heuristic)
-    let verdict = 'clean';
-    if(suspectScore >= 50){
-      verdict = 'proxy';
-    } else if (suspectScore >= 15){
-      verdict = 'likely-proxy';
-    } else {
-      verdict = 'clean';
-    }
-
-    // Display results
-    if(verdict === 'proxy'){
-      setBadge('bad','Proxy detected');
-      summary.textContent = 'Strong indications of a proxy/VPN. Get off the proxy.';
-      detailText.textContent = 'This browser session shows strong signals that you are using a proxy or VPN. The site recommends you disconnect the proxy if you need to be recognized as a normal non-proxied connection.';
-      addEvidence('Verdict: PROXY (score ' + suspectScore + ')');
-      // Make the "get off the proxy" message extra visible
-      const big = document.createElement('div');
-      big.style.marginTop='10px';
-      big.style.padding='12px';
-      big.style.borderRadius='10px';
-      big.style.background='linear-gradient(90deg, rgba(255,107,107,0.12), rgba(255,107,107,0.04))';
-      big.style.color='#ffdede';
-      big.style.fontWeight='700';
-      big.textContent='GET OFF THE PROXY';
-      document.getElementById('details').appendChild(big);
-    } else if (verdict === 'likely-proxy'){
-      setBadge('bad','Likely proxy');
-      summary.textContent = 'Multiple suspicious signals suggest a proxy or VPN is in use.';
-      detailText.textContent = 'There are multiple indicators that a proxy or VPN MAY be active. Not guaranteed; consider disconnecting if you want to appear as non-proxied.';
-      addEvidence('Verdict: LIKELY PROXY (score ' + suspectScore + ')');
-    } else {
-      setBadge('ok','No proxy detected');
-      summary.textContent = 'No clear proxy or VPN signals detected — but detection is heuristic.';
-      detailText.textContent = 'No strong indicators were found. This does NOT guarantee you are not on a proxy or VPN.';
-      addEvidence('Verdict: CLEAN (score ' + suspectScore + ')');
-    }
-
-    if(reasons.length){
-      reasons.forEach(r => addEvidence('Reason: ' + r));
-    } else {
-      addEvidence('No notable reasons found.');
-    }
-
-    btn.disabled = false;
-    rebtn.style.display='inline-block';
-  }
-
-  btn.addEventListener('click', runChecks);
-  rebtn.addEventListener('click', () => { checksDiv.innerHTML=''; evidenceList.innerHTML=''; document.getElementById('details').querySelectorAll('div').forEach(d=>d.style.display='block'); runChecks(); });
-
-  // optionally run once immediately
-  // runChecks();
-})();
+});
 </script>
 </body>
 </html>
