@@ -31,6 +31,7 @@ export async function handler(event, context) {
 
     return {
       statusCode: 200,
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ip,
         country: data.country,
@@ -41,6 +42,9 @@ export async function handler(event, context) {
       }),
     };
   } catch (err) {
-    return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: err.message }),
+    };
   }
 }
