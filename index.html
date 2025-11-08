@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Proxy Detector (Free, No Key)</title>
+<title>Proxy / VPN Detector</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   body {
-    font-family: Arial, sans-serif;
+    font-family: "Inter", Arial, sans-serif;
     background: #0f1724;
     color: #f0f0f0;
     display: flex;
@@ -17,20 +17,28 @@
   }
   .box {
     background: #1a2333;
-    border-radius: 12px;
-    padding: 20px 28px;
+    border-radius: 16px;
+    padding: 30px 36px;
     max-width: 480px;
     text-align: center;
-    box-shadow: 0 6px 24px rgba(0,0,0,0.5);
+    box-shadow: 0 6px 24px rgba(0,0,0,0.6);
   }
-  h1 { font-size: 22px; margin-bottom: 10px; }
+  h1 {
+    font-size: 22px;
+    margin-bottom: 12px;
+  }
   button {
     background: #3ddc84;
+    color: #000;
     border: none;
     padding: 10px 18px;
     border-radius: 8px;
     cursor: pointer;
-    font-weight: bold;
+    font-weight: 600;
+    transition: 0.2s;
+  }
+  button:hover {
+    background: #2fc272;
   }
   .bad {
     color: #ff6b6b;
@@ -50,6 +58,9 @@
     border-radius: 8px;
     text-align: left;
     overflow-x: auto;
+    font-size: 12px;
+    color: #bbb;
+    margin-top: 10px;
   }
 </style>
 </head>
@@ -70,12 +81,13 @@ document.getElementById("checkBtn").addEventListener("click", async () => {
   details.textContent = "";
 
   try {
-    const res = await fetch("https://ipwho.is/");
+    const res = await fetch("/api/check");
     if (!res.ok) throw new Error("Request failed");
     const data = await res.json();
+
     details.textContent = JSON.stringify(data, null, 2);
 
-    if (data.proxy === true || data.security?.vpn || data.security?.tor) {
+    if (data.proxyDetected) {
       resultDiv.innerHTML = `<div class="bad">🚫 Proxy/VPN detected — Get off the proxy!</div>`;
     } else {
       resultDiv.innerHTML = `<div class="ok">✅ No proxy detected</div>`;
