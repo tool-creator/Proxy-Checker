@@ -1,5 +1,3 @@
-import fetch from "node-fetch";
-
 export async function handler(event, context) {
   const headers = event.headers;
   const ip =
@@ -9,7 +7,7 @@ export async function handler(event, context) {
     headers["cf-connecting-ip"];
 
   try {
-    const res = await fetch(`https://ipwho.is/${ip}`);
+    const res = await fetch(`https://ipwho.is/${ip}`); // native fetch works in Node 18+
     const data = await res.json();
 
     let proxyScore = 0;
