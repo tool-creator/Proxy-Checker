@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Proxy Detector (IPHub)</title>
+<title>Proxy Detector (Free, No Key)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   body {
@@ -69,39 +69,14 @@ document.getElementById("checkBtn").addEventListener("click", async () => {
   resultDiv.textContent = "Checking...";
   details.textContent = "";
 
-  const apiKey = "MzAyMzk6TGFWTWhmTzRiZ3lKV1FPSHJjMWZXOEhqRHlpTmxrcGs="; // <-- paste your key here for local use
-
   try {
-    const res = await fetch("https://proxycheck.io/v2/?key=" + apiKey); // Correction below
-  } catch {}
-  try {
-    // 1. Get public IP
-    const ipRes = await fetch("https://api.ipify.org?format=json");
-    const { ip } = await ipRes.json();
-
-    // 2. Query IPHub API
-    const resp = await fetch("https://v2.api.iphub.info/ip/" + ip, {
-      headers: { "X-Key": apiKey }
-    });
-
-    if (!resp.ok) {
-      resultDiv.textContent = "Error fetching from IPHub: " + resp.status;
-      return;
-    }
-
-    const data = await resp.json();
+    const res = await fetch("https://ipwho.is/");
+    if (!res.ok) throw new Error("Request failed");
+    const data = await res.json();
     details.textContent = JSON.stringify(data, null, 2);
 
-    /*
-      IPHub "block" field meanings:
-      0 = Residential / non-proxy
-      1 = Non-residential / proxy / hosting
-      2 = Mixed
-    */
-    if (data.block === 1) {
+    if (data.proxy === true || data.security?.vpn || data.security?.tor) {
       resultDiv.innerHTML = `<div class="bad">🚫 Proxy/VPN detected — Get off the proxy!</div>`;
-    } else if (data.block === 2) {
-      resultDiv.innerHTML = `<div class="bad">⚠️ Possible proxy — mixed usage detected!</div>`;
     } else {
       resultDiv.innerHTML = `<div class="ok">✅ No proxy detected</div>`;
     }
