@@ -4,25 +4,48 @@ export async function handler(event, context) {
     headers["x-nf-client-connection-ip"] ||
     headers["x-forwarded-for"]?.split(",")[0] ||
     headers["client-ip"] ||
-    headers["cf-connecting-ip"];
+    headers["cf-connecting-ip"] ||
+    "8.8.8.8"; // fallback for local testing
 
   try {
-    const res = await fetch(`https://ipwho.is/${ip}`); // native fetch works in Node 18+
-    const data = await res.json();
+    // Fetch data from ipwho.is
+    const ipwhoPromise = fetch(`https://ipwho.is/${ip}`).then((r) => r.json());
 
+    // Fetch data from IPHub
+    const iphubPromise = fetch(`https://v2.api.iphub.info/ip/${ip}`, {
+      headers: { Authorization: "MzAyMzk6TGFWTWhmTzRiZ3lKV1FPSHJjMWZXOEhqRHlpTmxrcGs=" },
+    }).then((r) => r.json());
+
+    const [ipwho, iphub] = await Promise.allSettled([ipwhoPromise, iphubPromise]);
+
+    const dataWho = ipwho.value || {};
+    const dataHub = iphub.value || {};
+
+    // Determine proxy score
     let proxyScore = 0;
     const reasons = [];
 
-    if (data.security?.vpn || data.security?.proxy || data.security?.tor) {
-      proxyScore += 70;
-      reasons.push("API reports VPN/Proxy/TOR usage.");
+    // ipwho.is detection
+    if (dataWho.security?.vpn || dataWho.security?.proxy || dataWho.security?.tor) {
+      proxyScore += 60;
+      reasons.push("ipwho.is reports VPN/Proxy/TOR usage.");
     }
 
-    const asn = (data.connection?.asn_name || "").toLowerCase();
+    // iphub.info detection
+    if (dataHub.block === 1) {
+      proxyScore += 80;
+      reasons.push("IPHub flagged this IP as a proxy/VPN.");
+    } else if (dataHub.block === 2) {
+      proxyScore += 40;
+      reasons.push("IPHub uncertain — possible proxy/VPN.");
+    }
+
+    // ASN / hosting detection
+    const asn = (dataWho.connection?.asn_name || "").toLowerCase();
     const proxyHosts = ["croxy", "vpn", "proxy", "digitalocean", "cloudflare", "amazon", "google"];
-    if (proxyHosts.some(k => asn.includes(k))) {
-      proxyScore += 30;
-      reasons.push("ASN belongs to known proxy/hosting provider: " + data.connection.asn_name);
+    if (proxyHosts.some((k) => asn.includes(k))) {
+      proxyScore += 20;
+      reasons.push("ASN belongs to known proxy/hosting provider: " + dataWho.connection.asn_name);
     }
 
     const proxyDetected = proxyScore >= 50;
@@ -32,11 +55,13 @@ export async function handler(event, context) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ip,
-        country: data.country,
-        asn: data.connection?.asn_name,
+        country: dataWho.country,
+        isp: dataWho.connection?.isp,
+        asn: dataWho.connection?.asn_name,
+        iphubBlock: dataHub.block,
         proxyDetected,
         proxyScore,
-        reasons
+        reasons,
       }),
     };
   } catch (err) {
