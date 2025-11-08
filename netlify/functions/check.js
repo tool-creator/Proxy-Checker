@@ -8,30 +8,36 @@ export async function handler(event, context) {
     "8.8.8.8"; // fallback for local testing
 
   try {
-    // Fetch data from ipwho.is
+    // --- 1️⃣ Call ipwho.is ---
     const ipwhoPromise = fetch(`https://ipwho.is/${ip}`).then((r) => r.json());
 
-    // Fetch data from IPHub
+    // --- 2️⃣ Call IPHub ---
     const iphubPromise = fetch(`https://v2.api.iphub.info/ip/${ip}`, {
-      headers: { Authorization: "MzAyMzk6TGFWTWhmTzRiZ3lKV1FPSHJjMWZXOEhqRHlpTmxrcGs=" },
+      headers: {
+        Authorization:
+          "MzAyMzk6TGFWTWhmTzRiZ3lKV1FPSHJjMWZXOEhqRHlpTmxrcGs=",
+      },
     }).then((r) => r.json());
 
-    const [ipwho, iphub] = await Promise.allSettled([ipwhoPromise, iphubPromise]);
+    const [ipwhoResult, iphubResult] = await Promise.allSettled([
+      ipwhoPromise,
+      iphubPromise,
+    ]);
 
-    const dataWho = ipwho.value || {};
-    const dataHub = iphub.value || {};
+    const dataWho = ipwhoResult.value || {};
+    const dataHub = iphubResult.value || {};
 
-    // Determine proxy score
+    // --- 3️⃣ Scoring ---
     let proxyScore = 0;
     const reasons = [];
 
-    // ipwho.is detection
+    // ipwho.is flags
     if (dataWho.security?.vpn || dataWho.security?.proxy || dataWho.security?.tor) {
       proxyScore += 60;
       reasons.push("ipwho.is reports VPN/Proxy/TOR usage.");
     }
 
-    // iphub.info detection
+    // IPHub flags
     if (dataHub.block === 1) {
       proxyScore += 80;
       reasons.push("IPHub flagged this IP as a proxy/VPN.");
@@ -40,33 +46,63 @@ export async function handler(event, context) {
       reasons.push("IPHub uncertain — possible proxy/VPN.");
     }
 
-    // ASN / hosting detection
+    // ASN / hosting provider detection
     const asn = (dataWho.connection?.asn_name || "").toLowerCase();
-    const proxyHosts = ["croxy", "vpn", "proxy", "digitalocean", "cloudflare", "amazon", "google"];
-    if (proxyHosts.some((k) => asn.includes(k))) {
-      proxyScore += 20;
-      reasons.push("ASN belongs to known proxy/hosting provider: " + dataWho.connection.asn_name);
+    const isp = (dataWho.connection?.isp || "").toLowerCase();
+    const hostingKeywords = [
+      "psychz",
+      "digitalocean",
+      "amazon",
+      "google",
+      "cloudflare",
+      "ovh",
+      "leaseweb",
+      "hetzner",
+      "linode",
+      "vultr",
+      "m247",
+      "choopa",
+      "contabo",
+      "nexeon",
+      "tencent",
+      "azure",
+      "oracle",
+    ];
+
+    if (hostingKeywords.some((k) => isp.includes(k) || asn.includes(k))) {
+      proxyScore += 40;
+      reasons.push(
+        `ISP/ASN belongs to known hosting provider: ${
+          dataWho.connection?.asn_name || dataWho.connection?.isp
+        }`
+      );
     }
 
     const proxyDetected = proxyScore >= 50;
 
+    // --- 4️⃣ Response ---
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ip,
-        country: dataWho.country,
-        isp: dataWho.connection?.isp,
-        asn: dataWho.connection?.asn_name,
-        iphubBlock: dataHub.block,
-        proxyDetected,
-        proxyScore,
-        reasons,
-      }),
+      body: JSON.stringify(
+        {
+          ip,
+          country: dataWho.country,
+          isp: dataWho.connection?.isp,
+          asn: dataWho.connection?.asn_name,
+          iphubBlock: dataHub.block,
+          proxyDetected,
+          proxyScore,
+          reasons,
+        },
+        null,
+        2
+      ),
     };
   } catch (err) {
     return {
       statusCode: 500,
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ error: err.message }),
     };
   }
