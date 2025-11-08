@@ -47,10 +47,12 @@ export async function handler(event, context) {
     }
 
     // ISP / ASN detection
-    const asn = (dataWho.connection?.asn_name || "").toLowerCase();
-    const isp = (dataWho.connection?.isp || "").toLowerCase();
+    const isp = dataWho.connection?.isp?.trim() || "";
+    const asn = dataWho.connection?.asn_name?.trim() || "";
 
-    const hardFlagKeywords = ["psychz"]; // always proxy
+    const lowerISP = isp.toLowerCase();
+    const lowerASN = asn.toLowerCase();
+
     const hostingKeywords = [
       "digitalocean",
       "amazon",
@@ -67,24 +69,20 @@ export async function handler(event, context) {
       "nexeon",
       "tencent",
       "azure",
-      "oracle"
+      "oracle",
     ];
 
-    // --- 4️⃣ Hard flag (Psychz Networks) ---
-    if (hardFlagKeywords.some((k) => isp.includes(k) || asn.includes(k))) {
-      proxyScore += 100;
-      reasons.push(
-        `ISP/ASN belongs to Psychz Networks — known proxy hosting provider.`
-      );
+    // --- 4️⃣ Hard flag if exactly "Psychz Networks" ---
+    if (isp.toLowerCase() === "psychz networks") {
+      proxyScore = 100;
+      reasons.push("ISP is exactly 'Psychz Networks' — known proxy host.");
     }
 
     // --- 5️⃣ Generic hosting detection ---
-    else if (hostingKeywords.some((k) => isp.includes(k) || asn.includes(k))) {
+    else if (hostingKeywords.some((k) => lowerISP.includes(k) || lowerASN.includes(k))) {
       proxyScore += 40;
       reasons.push(
-        `ISP/ASN belongs to known hosting provider: ${
-          dataWho.connection?.asn_name || dataWho.connection?.isp
-        }`
+        `ISP/ASN belongs to known hosting provider: ${asn || isp}`
       );
     }
 
@@ -98,8 +96,8 @@ export async function handler(event, context) {
         {
           ip,
           country: dataWho.country,
-          isp: dataWho.connection?.isp,
-          asn: dataWho.connection?.asn_name,
+          isp,
+          asn,
           iphubBlock: dataHub.block,
           proxyDetected,
           proxyScore,
